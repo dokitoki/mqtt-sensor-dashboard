@@ -218,11 +218,11 @@ function renderTile(name, value, stale, updatedAt) {
   tile.classList.toggle("stale", Boolean(stale));
   template.querySelector(".tile-name").textContent = name;
   template.querySelector(".tile-value").textContent = value ?? "";
-  const ageEl = template.querySelector(".tile-age");
-  if (updatedAt) {
+  if (stale && updatedAt) {
+    const ageEl = template.querySelector(".tile-age");
     ageEl.dataset.ts = updatedAt;
-    ageEl.dataset.stale = stale ? "1" : "";
-    ageEl.textContent = ageText(Math.round((Date.now() - updatedAt) / 1000));
+    ageEl.dataset.stale = "1";
+    ageEl.textContent = `stale · ${ageText(Math.round((Date.now() - updatedAt) / 1000))}`;
   }
   return template;
 }
