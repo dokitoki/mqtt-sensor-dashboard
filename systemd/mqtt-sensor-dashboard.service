@@ -1,0 +1,16 @@
+[Unit]
+Description=OpenClaw MQTT Sensor Dashboard
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ve/.openclaw/workspace/mqtt-sensor-dashboard
+ExecStart=/home/ve/.openclaw/workspace/mqtt-sensor-dashboard/run.sh
+Restart=always
+RestartSec=5
+Environment=MQTT_DASHBOARD_HOST=127.0.0.1
+Environment=MQTT_DASHBOARD_PORT=8776
+
+[Install]
+WantedBy=default.target

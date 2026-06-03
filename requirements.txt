@@ -1,0 +1,2 @@
+# No Python packages are required. The server uses a small stdlib MQTT 3.1.1
+# subscriber so it can run on minimal hosts without pip or python3-venv.

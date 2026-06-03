@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>MQTT Sensors</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="app">
+      <header class="topbar">
+        <div>
+          <h1>MQTT Sensors</h1>
+          <p id="status">Starting...</p>
+        </div>
+        <nav class="view-nav" aria-label="Sensor views">
+          <a id="dashboardLink" href="./">Dashboard</a>
+          <a id="settingsLink" href="settings">Settings</a>
+        </nav>
+        <form id="settings" class="settings">
+          <label>
+            Stale after
+            <input id="staleAfter" type="number" min="5" step="5">
+            <span>sec</span>
+          </label>
+          <button type="submit">Save</button>
+        </form>
+      </header>
+
+      <div id="filterBar" class="filter-bar" hidden>
+        <input id="filterInput" type="search" placeholder="Filter by name, group, or topic…" autocomplete="off">
+        <label class="check filter-hidden-label">
+          <input id="showHiddenCheck" type="checkbox">
+          Show hidden
+        </label>
+        <span id="filterStatus" class="filter-status"></span>
+      </div>
+
+      <section id="empty" class="empty" hidden>
+        <strong>No MQTT data yet</strong>
+        <span>Fill <code>credentials/mqtt.json</code>. The server will subscribe and discover topics automatically.</span>
+      </section>
+
+      <section id="dashboard"></section>
+      <section id="groups" class="groups"></section>
+    </main>
+
+    <template id="tileTemplate">
+      <article class="dashboard-tile">
+        <strong class="tile-name"></strong>
+        <span class="tile-value"></span>
+        <span class="tile-age"></span>
+      </article>
+    </template>
+
+    <template id="cardTemplate">
+      <article class="sensor-card">
+        <div class="card-header">
+          <code class="topic-label"></code>
+          <div class="card-actions">
+            <button class="icon move-up" type="button" title="Move up">&uarr;</button>
+            <button class="icon move-down" type="button" title="Move down">&darr;</button>
+            <button class="icon delete-topic" type="button" title="Remove topic">&times;</button>
+          </div>
+        </div>
+        <form class="editor">
+          <label>
+            Name
+            <input name="name" autocomplete="off">
+          </label>
+          <label>
+            Group
+            <input name="group" autocomplete="off">
+          </label>
+          <label class="compact">
+            Stale seconds
+            <input name="stale_after_seconds" type="number" min="5" step="5" placeholder="default">
+          </label>
+          <label class="check">
+            <input name="selected" type="checkbox">
+            Dashboard
+          </label>
+        </form>
+        <div class="reading">
+          <strong class="value"></strong>
+          <span class="age"></span>
+        </div>
+        <dl class="fields"></dl>
+        <div class="field-picker"></div>
+        <div class="meta"></div>
+      </article>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>
