@@ -505,9 +505,13 @@ $("showHiddenCheck").addEventListener("change", () => {
 
 function isEditingSettings() {
   const active = document.activeElement;
-  return active &&
+  const inputFocused = active &&
     (active.tagName === "INPUT" || active.tagName === "TEXTAREA") &&
     Boolean(active.closest("#groups, #filterBar"));
+  const transformOpen = Boolean(
+    document.querySelector("#groups .transform-section[open], #groups .field-transform-section[open]")
+  );
+  return inputFocused || transformOpen;
 }
 
 async function refresh() {
