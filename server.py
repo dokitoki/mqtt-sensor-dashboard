@@ -274,7 +274,7 @@ def update_config(payload: dict) -> dict:
                             "name": label_from_field(field_key),
                             "selected": False,
                         })
-                        for key in ("name", "selected"):
+                        for key in ("name", "selected", "transform"):
                             if key in field_changes:
                                 field[key] = field_changes[key]
         save_state(dashboard_state)

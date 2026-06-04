@@ -125,7 +125,15 @@ function savePoint(topic, form) {
 function saveField(topic, key, row) {
   const selected = row.querySelector("[data-field-selected]").checked;
   const name = row.querySelector("[data-field-name]").value.trim();
-  save({ points: { [topic]: { fields: { [key]: { selected, name } } } } });
+  const expr = (row.querySelector("[data-field-expr]")?.value || "").trim();
+  const unit = (row.querySelector("[data-field-unit]")?.value || "").trim();
+  const decimalsRaw = (row.querySelector("[data-field-decimals]")?.value || "").trim();
+  const transform = (expr || unit || decimalsRaw) ? {
+    expr: expr || null,
+    unit: unit || null,
+    decimals: decimalsRaw !== "" ? parseInt(decimalsRaw) : null,
+  } : null;
+  save({ points: { [topic]: { fields: { [key]: { selected, name, transform } } } } });
 }
 
 function applyTransform(rawValue, transform) {
@@ -185,6 +193,7 @@ function fieldEntries(point) {
       value,
       name: fields[key]?.name || key.replace(/[_-]/g, " "),
       selected: Boolean(fields[key]?.selected),
+      transform: fields[key]?.transform || null,
     }));
 }
 
@@ -197,7 +206,9 @@ function renderFields(point) {
 function renderFieldPicker(point) {
   const fields = fieldEntries(point);
   if (!fields.length) return "";
-  return fields.map((field) => `
+  return fields.map((field) => {
+    const tx = field.transform || {};
+    return `
     <div class="field-row" data-field-key="${escapeHtml(field.key)}">
       <label class="check">
         <input data-field-selected type="checkbox" ${field.selected ? "checked" : ""}>
@@ -208,9 +219,24 @@ function renderFieldPicker(point) {
         <input data-field-name value="${escapeHtml(field.name)}" autocomplete="off">
       </label>
       <code title="${escapeHtml(field.key)}">${escapeHtml(field.key)}</code>
-      <strong>${escapeHtml(field.value)}</strong>
+      <strong data-raw-value>${escapeHtml(field.value)}</strong>
+      <details class="field-transform-section"${tx.expr || tx.unit ? " open" : ""}>
+        <summary class="field-transform-summary">Transform</summary>
+        <div class="field-transform-form">
+          <label>Formula <span class="hint">x = value</span>
+            <input data-field-expr placeholder="x / 10" value="${escapeHtml(tx.expr || "")}" autocomplete="off" spellcheck="false">
+          </label>
+          <label>Unit
+            <input data-field-unit placeholder="°C" value="${escapeHtml(tx.unit || "")}" autocomplete="off">
+          </label>
+          <label>Decimals
+            <input data-field-decimals type="number" min="0" max="8" placeholder="auto" value="${tx.decimals != null ? tx.decimals : ""}">
+          </label>
+          <p class="transform-preview"></p>
+        </div>
+      </details>
     </div>
-  `).join("");
+  `}).join("");
 }
 
 function renderCard(point) {
@@ -265,8 +291,32 @@ function renderCard(point) {
   });
   template.querySelectorAll(".field-row").forEach((row) => {
     const key = row.dataset.fieldKey;
+    const rawValue = row.querySelector("[data-raw-value]")?.textContent || "";
+    const preview = row.querySelector(".transform-preview");
+
+    const refreshPreview = () => {
+      if (!preview) return;
+      const expr = (row.querySelector("[data-field-expr]")?.value || "").trim();
+      const unit = (row.querySelector("[data-field-unit]")?.value || "").trim();
+      const dec = row.querySelector("[data-field-decimals]")?.value.trim();
+      const { display, unit: u } = applyTransform(rawValue, {
+        expr, unit, decimals: dec ? parseInt(dec) : null,
+      });
+      if (expr && display !== String(rawValue ?? "")) {
+        preview.textContent = `${rawValue} → ${display}${u ? " " + u : ""}`;
+      } else if (u) {
+        preview.textContent = `${rawValue} ${u}`;
+      } else {
+        preview.textContent = "";
+      }
+    };
+
+    refreshPreview();
     row.querySelectorAll("input").forEach((input) => {
       input.addEventListener("change", () => saveField(point.topic, key, row));
+      if (input.matches("[data-field-expr],[data-field-unit],[data-field-decimals]")) {
+        input.addEventListener("input", refreshPreview);
+      }
     });
   });
   return template;
@@ -304,9 +354,10 @@ function dashboardItems() {
     }
     for (const field of fieldEntries(point)) {
       if (!field.selected) continue;
+      const { display, unit } = applyTransform(field.value, field.transform);
       items.push({
         name: field.name || `${point.name || point.topic} ${field.key}`,
-        value: field.value,
+        value: unit ? `${display} ${unit}` : display,
         stale: point.stale,
         group,
         updatedAt,
