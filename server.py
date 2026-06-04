@@ -262,7 +262,7 @@ def update_config(payload: dict) -> dict:
                 if topic not in dashboard_state["points"] or not isinstance(changes, dict):
                     continue
                 point = dashboard_state["points"][topic]
-                for key in ("name", "group", "hidden", "selected", "stale_after_seconds"):
+                for key in ("name", "group", "hidden", "selected", "stale_after_seconds", "transform"):
                     if key in changes:
                         point[key] = changes[key]
                 if "fields" in changes and isinstance(changes["fields"], dict):

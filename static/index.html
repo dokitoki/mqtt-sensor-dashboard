@@ -85,6 +85,24 @@
           <strong class="value"></strong>
           <span class="age"></span>
         </div>
+        <details class="transform-section">
+          <summary class="transform-summary">Transform</summary>
+          <form class="transform-form">
+            <label>
+              Formula <span class="hint">x = value</span>
+              <input name="expr" placeholder="x / 10" autocomplete="off" spellcheck="false">
+            </label>
+            <label>
+              Unit
+              <input name="unit" placeholder="°C" autocomplete="off">
+            </label>
+            <label>
+              Decimals
+              <input name="decimals" type="number" min="0" max="8" placeholder="auto">
+            </label>
+            <p class="transform-preview"></p>
+          </form>
+        </details>
         <dl class="fields"></dl>
         <div class="field-picker"></div>
         <div class="meta"></div>

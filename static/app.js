@@ -128,6 +128,53 @@ function saveField(topic, key, row) {
   save({ points: { [topic]: { fields: { [key]: { selected, name } } } } });
 }
 
+function applyTransform(rawValue, transform) {
+  const unit = transform?.unit || "";
+  if (!transform?.expr || rawValue == null || rawValue === "") {
+    return { display: String(rawValue ?? ""), unit };
+  }
+  const num = parseFloat(rawValue);
+  if (isNaN(num)) return { display: String(rawValue), unit };
+  try {
+    const result = new Function("x", `'use strict'; return (${transform.expr})`)(num);
+    if (typeof result !== "number" || !isFinite(result)) return { display: String(rawValue), unit };
+    const dec = transform.decimals != null ? parseInt(transform.decimals) : null;
+    return { display: (!isNaN(dec) && dec != null) ? result.toFixed(dec) : String(result), unit };
+  } catch {
+    return { display: String(rawValue), unit };
+  }
+}
+
+function saveTransform(topic, form) {
+  const expr = form.elements.expr.value.trim();
+  const unit = form.elements.unit.value.trim();
+  const decimalsRaw = form.elements.decimals.value.trim();
+  const transform = (expr || unit || decimalsRaw) ? {
+    expr: expr || null,
+    unit: unit || null,
+    decimals: decimalsRaw !== "" ? parseInt(decimalsRaw) : null,
+  } : null;
+  save({ points: { [topic]: { transform } } });
+}
+
+function updateTransformPreview(form, rawValue) {
+  const preview = form.querySelector(".transform-preview");
+  if (!preview) return;
+  const expr = form.elements.expr.value.trim();
+  const unit = form.elements.unit.value.trim();
+  const decimalsRaw = form.elements.decimals.value.trim();
+  const { display, unit: u } = applyTransform(rawValue, {
+    expr, unit, decimals: decimalsRaw !== "" ? parseInt(decimalsRaw) : null,
+  });
+  if (expr && display !== String(rawValue ?? "")) {
+    preview.textContent = `${rawValue} → ${display}${u ? " " + u : ""}`;
+  } else if (u) {
+    preview.textContent = `${rawValue} ${u}`;
+  } else {
+    preview.textContent = "";
+  }
+}
+
 function fieldEntries(point) {
   const values = point.field_values || {};
   const fields = point.fields || {};
@@ -185,6 +232,19 @@ function renderCard(point) {
   }
   template.querySelector(".topic-label").textContent = point.topic;
   template.querySelector(".value").textContent = point.value ?? "";
+
+  const tx = point.transform || {};
+  const txForm = template.querySelector(".transform-form");
+  txForm.elements.expr.value = tx.expr || "";
+  txForm.elements.unit.value = tx.unit || "";
+  txForm.elements.decimals.value = tx.decimals != null ? tx.decimals : "";
+  if (tx.expr || tx.unit) template.querySelector(".transform-section").open = true;
+  updateTransformPreview(txForm, point.value);
+  txForm.querySelectorAll("input").forEach((input) => {
+    input.addEventListener("input", () => updateTransformPreview(txForm, point.value));
+    input.addEventListener("change", () => saveTransform(point.topic, txForm));
+  });
+
   template.querySelector(".fields").innerHTML = renderFields(point);
   template.querySelector(".field-picker").innerHTML = renderFieldPicker(point);
   template.querySelector(".meta").innerHTML = [
@@ -233,9 +293,10 @@ function dashboardItems() {
     const group = point.group || "Ungrouped";
     const updatedAt = point.source_updated_at || point.updated_at;
     if (point.selected) {
+      const { display, unit } = applyTransform(point.value, point.transform);
       items.push({
         name: point.name || point.topic,
-        value: point.value ?? "",
+        value: unit ? `${display} ${unit}` : display,
         stale: point.stale,
         group,
         updatedAt,

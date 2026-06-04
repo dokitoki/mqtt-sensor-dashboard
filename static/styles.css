@@ -378,6 +378,56 @@ h2 {
   color: var(--bad);
 }
 
+/* ── Transform section ── */
+
+.transform-section {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.transform-summary {
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+}
+
+.transform-summary::-webkit-details-marker { display: none; }
+.transform-summary::before { content: "▸  "; }
+details[open] .transform-summary::before { content: "▾  "; }
+
+.transform-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+  padding: 10px 12px 12px;
+  border-top: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.transform-preview {
+  grid-column: 1 / -1;
+  margin: 2px 0 0;
+  font-size: 13px;
+  font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, monospace;
+  color: var(--accent);
+  min-height: 18px;
+}
+
+.hint {
+  font-size: 10px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  opacity: 0.7;
+}
+
 /* ── Card editor form ── */
 
 .editor {
