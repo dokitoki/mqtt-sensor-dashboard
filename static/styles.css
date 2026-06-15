@@ -149,9 +149,31 @@ h1 {
 }
 
 .filter-status {
-  margin-left: auto;
   color: var(--muted);
   font-size: 13px;
+}
+
+.pause-btn {
+  margin-left: auto;
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.pause-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.pause-btn.paused {
+  border-color: #f59e0b;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.1);
 }
 
 .filter-empty {

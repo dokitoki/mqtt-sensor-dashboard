@@ -31,6 +31,7 @@ runtime = {
     "started_at": time.time(),
     "recon_until": 0.0,
     "credentials_mtime": 0.0,
+    "paused": False,
 }
 mqtt_client = None
 stop_event = threading.Event()
@@ -243,6 +244,7 @@ def point_payload() -> dict:
             "has_credentials": CREDENTIALS_PATH.exists(),
             "has_mqtt_library": True,
             "recon_until": int(runtime["recon_until"] * 1000) if runtime["recon_until"] else 0,
+            "paused": runtime["paused"],
         },
     }
 
@@ -422,16 +424,17 @@ def start_mqtt() -> None:
 def mqtt_watchdog() -> None:
     global mqtt_client
     while True:
-        mtime = CREDENTIALS_PATH.stat().st_mtime if CREDENTIALS_PATH.exists() else 0.0
-        if mtime and mtime != runtime["credentials_mtime"]:
-            runtime["credentials_mtime"] = mtime
-            if mqtt_client:
-                stop_event.set()
-                mqtt_client.join(timeout=8)
-            start_mqtt()
-        elif not mtime:
-            runtime["connected"] = False
-            runtime["last_error"] = f"Missing {CREDENTIALS_PATH}"
+        if not runtime["paused"]:
+            mtime = CREDENTIALS_PATH.stat().st_mtime if CREDENTIALS_PATH.exists() else 0.0
+            if mtime and mtime != runtime["credentials_mtime"]:
+                runtime["credentials_mtime"] = mtime
+                if mqtt_client:
+                    stop_event.set()
+                    mqtt_client.join(timeout=8)
+                start_mqtt()
+            elif not mtime:
+                runtime["connected"] = False
+                runtime["last_error"] = f"Missing {CREDENTIALS_PATH}"
         time.sleep(5)
 
 
@@ -470,7 +473,29 @@ class Handler(SimpleHTTPRequestHandler):
         return super().do_HEAD()
 
     def do_POST(self):
-        if urlparse(self.path).path != "/api/config":
+        path = urlparse(self.path).path
+        if path == "/api/mqtt":
+            length = int(self.headers.get("Content-Length", "0"))
+            try:
+                payload = json.loads(self.rfile.read(length).decode("utf-8"))
+            except json.JSONDecodeError:
+                self.send_json(400, {"error": "invalid json"})
+                return
+            paused = payload.get("paused")
+            if paused is True and not runtime["paused"]:
+                runtime["paused"] = True
+                stop_event.set()
+                if mqtt_client:
+                    mqtt_client.join(timeout=3)
+                runtime["connected"] = False
+            elif paused is False and runtime["paused"]:
+                runtime["paused"] = False
+                runtime["credentials_mtime"] = 0.0
+                stop_event.clear()
+                start_mqtt()
+            self.send_json(200, point_payload())
+            return
+        if path != "/api/config":
             self.send_json(404, {"error": "not found"})
             return
         length = int(self.headers.get("Content-Length", "0"))

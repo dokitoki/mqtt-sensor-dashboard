@@ -95,6 +95,17 @@ async function save(payload) {
   }
 }
 
+async function toggleMqttPause() {
+  const paused = !model.runtime?.paused;
+  const response = await fetch(`${appBase()}api/mqtt`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ paused }),
+  });
+  model = await response.json();
+  render();
+}
+
 async function deleteTopic(topic) {
   if (!confirm(`Remove "${topic}" from state?\n\nIt will reappear automatically if the broker publishes to this topic again.`)) return;
   saving = true;
@@ -391,6 +402,10 @@ function render() {
   $("settings").hidden = !settingsView;
   $("staleAfter").value = model.settings?.stale_after_seconds ?? "";
   $("filterBar").hidden = !settingsView;
+  const paused = Boolean(runtime.paused);
+  const pauseBtn = $("pauseBtn");
+  pauseBtn.textContent = paused ? "▶ Resume MQTT" : "⏸ Pause MQTT";
+  pauseBtn.classList.toggle("paused", paused);
   $("dashboard").hidden = settingsView;
   $("groups").hidden = !settingsView;
   $("empty").hidden = true;
@@ -492,6 +507,8 @@ $("settings").addEventListener("submit", (event) => {
   event.preventDefault();
   save({ settings: { stale_after_seconds: Number($("staleAfter").value) || 300 } });
 });
+
+$("pauseBtn").addEventListener("click", toggleMqttPause);
 
 $("filterInput").addEventListener("input", () => {
   filterText = $("filterInput").value;
