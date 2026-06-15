@@ -96,14 +96,22 @@ async function save(payload) {
 }
 
 async function toggleMqttPause() {
-  const paused = !model.runtime?.paused;
-  const response = await fetch(`${appBase()}api/mqtt`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ paused }),
-  });
-  model = await response.json();
-  render();
+  const btn = $("pauseBtn");
+  btn.disabled = true;
+  try {
+    const paused = !model.runtime?.paused;
+    const response = await fetch(`${appBase()}api/mqtt`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paused }),
+    });
+    model = await response.json();
+    render();
+  } catch (err) {
+    console.error("MQTT pause/resume failed:", err);
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 async function deleteTopic(topic) {

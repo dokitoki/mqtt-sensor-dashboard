@@ -485,8 +485,6 @@ class Handler(SimpleHTTPRequestHandler):
             if paused is True and not runtime["paused"]:
                 runtime["paused"] = True
                 stop_event.set()
-                if mqtt_client:
-                    mqtt_client.join(timeout=3)
                 runtime["connected"] = False
             elif paused is False and runtime["paused"]:
                 runtime["paused"] = False
