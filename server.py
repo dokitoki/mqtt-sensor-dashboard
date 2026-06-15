@@ -32,9 +32,12 @@ runtime = {
     "recon_until": 0.0,
     "credentials_mtime": 0.0,
     "paused": False,
+    "view_mode": "settings",
+    "subscribed_topics": [],
 }
 mqtt_client = None
 stop_event = threading.Event()
+_mqtt_lock = threading.Lock()
 
 
 def now_ms() -> int:
@@ -245,6 +248,8 @@ def point_payload() -> dict:
             "has_mqtt_library": True,
             "recon_until": int(runtime["recon_until"] * 1000) if runtime["recon_until"] else 0,
             "paused": runtime["paused"],
+            "view_mode": runtime.get("view_mode", "settings"),
+            "subscribed_count": len(runtime.get("subscribed_topics", [])),
         },
     }
 
@@ -367,9 +372,8 @@ def handle_publish(first_byte: int, body: bytes) -> None:
     upsert_point(topic, payload, bool(first_byte & 0x01), qos)
 
 
-def mqtt_loop(creds: dict, stop: threading.Event) -> None:
+def mqtt_loop(creds: dict, stop: threading.Event, topics: list[str]) -> None:
     host, port, tls_from_url = parse_broker_url(creds.get("url", ""))
-    topics = creds.get("topics") or ["#"]
     use_tls = bool(creds.get("tls") or tls_from_url)
     while not stop.is_set():
         try:
@@ -404,33 +408,48 @@ def mqtt_loop(creds: dict, stop: threading.Event) -> None:
                 pass
 
 
+def _dashboard_topics() -> list[str]:
+    return [
+        t for t, p in dashboard_state["points"].items()
+        if p.get("selected") or any(f.get("selected") for f in p.get("fields", {}).values())
+    ]
+
+
 def start_mqtt() -> None:
-    global mqtt_client
-    creds = read_credentials()
-    if not creds:
-        return
-    try:
-        host, port, tls_from_url = parse_broker_url(creds.get("url", ""))
-    except ValueError as exc:
-        runtime["last_error"] = str(exc)
-        return
-    runtime["recon_until"] = time.time() + int(creds.get("recon_seconds") or 0)
-    runtime["last_error"] = ""
-    stop_event.clear()
-    mqtt_client = threading.Thread(target=mqtt_loop, args=(creds, stop_event), daemon=True)
-    mqtt_client.start()
+    global mqtt_client, stop_event
+    with _mqtt_lock:
+        creds = read_credentials()
+        if not creds:
+            return
+        try:
+            parse_broker_url(creds.get("url", ""))
+        except ValueError as exc:
+            runtime["last_error"] = str(exc)
+            return
+
+        if runtime.get("view_mode") == "dashboard":
+            selected = _dashboard_topics()
+            topics = selected if selected else (creds.get("topics") or ["#"])
+        else:
+            topics = creds.get("topics") or ["#"]
+
+        runtime["recon_until"] = time.time() + int(creds.get("recon_seconds") or 0)
+        runtime["last_error"] = ""
+        runtime["subscribed_topics"] = topics
+
+        old_stop = stop_event
+        old_stop.set()
+        stop_event = threading.Event()
+        mqtt_client = threading.Thread(target=mqtt_loop, args=(creds, stop_event, topics), daemon=True)
+        mqtt_client.start()
 
 
 def mqtt_watchdog() -> None:
-    global mqtt_client
     while True:
         if not runtime["paused"]:
             mtime = CREDENTIALS_PATH.stat().st_mtime if CREDENTIALS_PATH.exists() else 0.0
             if mtime and mtime != runtime["credentials_mtime"]:
                 runtime["credentials_mtime"] = mtime
-                if mqtt_client:
-                    stop_event.set()
-                    mqtt_client.join(timeout=8)
                 start_mqtt()
             elif not mtime:
                 runtime["connected"] = False
@@ -489,9 +508,22 @@ class Handler(SimpleHTTPRequestHandler):
             elif paused is False and runtime["paused"]:
                 runtime["paused"] = False
                 runtime["credentials_mtime"] = 0.0
-                stop_event.clear()
                 start_mqtt()
             self.send_json(200, point_payload())
+            return
+        if path == "/api/view":
+            length = int(self.headers.get("Content-Length", "0"))
+            try:
+                payload = json.loads(self.rfile.read(length).decode("utf-8"))
+            except json.JSONDecodeError:
+                self.send_json(400, {"error": "invalid json"})
+                return
+            mode = payload.get("mode")
+            if mode in ("dashboard", "settings") and mode != runtime.get("view_mode"):
+                runtime["view_mode"] = mode
+                if not runtime["paused"]:
+                    start_mqtt()
+            self.send_json(200, {"mode": runtime.get("view_mode", "settings")})
             return
         if path != "/api/config":
             self.send_json(404, {"error": "not found"})

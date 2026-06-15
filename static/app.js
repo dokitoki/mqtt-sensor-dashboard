@@ -4,6 +4,7 @@ let model = { settings: {}, points: [], runtime: {} };
 let saving = false;
 let filterText = "";
 let showHidden = false;
+let lastViewMode = null;
 
 function appBase() {
   return window.location.pathname.startsWith("/sensors") ? "/sensors/" : "/";
@@ -92,6 +93,18 @@ async function save(payload) {
     render();
   } finally {
     saving = false;
+  }
+}
+
+async function setViewMode(mode) {
+  try {
+    await fetch(`${appBase()}api/view`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode }),
+    });
+  } catch (err) {
+    console.error("setViewMode failed:", err);
   }
 }
 
@@ -394,6 +407,12 @@ function renderEmpty(message, detail) {
 
 function render() {
   const settingsView = isSettingsView();
+  const viewMode = settingsView ? "settings" : "dashboard";
+  if (viewMode !== lastViewMode) {
+    lastViewMode = viewMode;
+    setViewMode(viewMode);
+  }
+
   const items = dashboardItems();
   const runtime = model.runtime || {};
   const totalCount = model.points.length;
@@ -403,7 +422,10 @@ function render() {
   const connClass = runtime.connected ? "dot dot-ok" : "dot dot-err";
   const connLabel = runtime.connected ? "connected" : "not connected";
   const extra = statusText(runtime);
-  $("status").innerHTML = `<span class="${connClass}"></span> ${connLabel}${extra ? " · " + escapeHtml(extra) : ""} · ${selectedCount} on dashboard · ${totalCount} topics`;
+  const topicInfo = !settingsView && runtime.subscribed_count != null
+    ? `${runtime.subscribed_count} subscribed`
+    : `${totalCount} topics`;
+  $("status").innerHTML = `<span class="${connClass}"></span> ${connLabel}${extra ? " · " + escapeHtml(extra) : ""} · ${selectedCount} on dashboard · ${topicInfo}`;
 
   $("dashboardLink").classList.toggle("active", !settingsView);
   $("settingsLink").classList.toggle("active", settingsView);
